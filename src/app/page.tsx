@@ -235,6 +235,51 @@ const currentTime = () => Date.now();
 
 const normalizeText = (value: string) => value.toLocaleLowerCase('tr-TR');
 
+const unsplashUrl = (photoId: string, width = 480) =>
+  `https://images.unsplash.com/photo-${photoId}?auto=format&fit=crop&w=${width}&q=70`;
+
+const HERO_PHOTO_ID = '1517248135467-4c7edcad34c4';
+
+const FOOD_IMAGE_RULES: { pattern: RegExp; photos: string[] }[] = [
+  { pattern: /burger/, photos: ['1568901346375-23c9450c58cd'] },
+  { pattern: /pizza|lahmacun|pide|margarita/, photos: ['1513104890138-7c749659a591', '1565299624946-b28f40a0ae38', '1593560708920-61dd98c46a4e'] },
+  { pattern: /steak|biftek|bonfile|antrikot|ribeye/, photos: ['1544025162-d76694265947', '1600891964092-4316c288032e'] },
+  { pattern: /kanat|wings|nugget|çıtır|citir|kızarmış tavuk|kizarmis tavuk/, photos: ['1626082927389-6cd097cdc6ec', '1602253057119-44d745d9b860'] },
+  { pattern: /çorba|corba|soup/, photos: ['1547592166-23ac45744acd'] },
+  { pattern: /salata|salad|bowl|poke/, photos: ['1546069901-ba9599a7e63c', '1540189549336-e6e99c3679fe', '1512621776951-a57141f2eefd'] },
+  { pattern: /sütlaç|sutlac|muhallebi|puding|pudding|supangle|süpangle/, photos: ['1488477181946-6428a0291777'] },
+  { pattern: /baklava|künefe|kunefe|brownie|çikolata|cikolata|sufle|soufflé/, photos: ['1606313564200-e75d5e30476c', '1551024506-0bccd828d307'] },
+  { pattern: /krep|pankek|pancake|waffle/, photos: ['1567620905732-2d1ec7ab7445'] },
+  { pattern: /tatlı|tatli|pasta|cake|kek|cheesecake|tiramisu|profiterol|dondurma|dessert|donut/, photos: ['1565958011703-44f9829ba187', '1551024506-0bccd828d307', '1551024601-bec78aea704b', '1576618148400-f54bed99fcfd'] },
+  { pattern: /kahve|coffee|latte|espresso|cappuccino|mocha|çay|cay/, photos: ['1544787219-7f47ccb76574', '1495474472287-4d71bcdd2085'] },
+  { pattern: /milkshake|shake|frappe/, photos: ['1563805042-7684c019e1cb'] },
+  { pattern: /içecek|icecek|ayran|limonata|kola|soda|meşrubat|mesrubat|şalgam|salgam|smoothie|kokteyl|cocktail|drink|su/, photos: ['1556679343-c7306c1976bc', '1544145945-f90425340c7e'] },
+  { pattern: /kebap|kebab|şiş|kofte|köfte|ızgara|izgara|adana|urfa|döner|doner|kuzu|pirzola|tavuk|et yemek|mangal|grill|bbq/, photos: ['1603360946369-dc9bb6258143', '1599487488170-d11ec9c172f0', '1555939594-58d7cb561ad1', '1544025162-d76694265947'] },
+  { pattern: /başlangıç|baslangic|meze|böre|bore|ezme|humus|atıştırmalık|atistirmalik|appetizer|starter|samosa|çiğ köfte/, photos: ['1601050690597-df0568f70950', '1529042410759-befb1204b468', '1541518763669-27fef04b14ea'] },
+  { pattern: /ana yemek|güveç|guvec|mantı|manti|makarna|pilav|tencere|kavurma|yemek|main|noodle|erişte/, photos: ['1541518763669-27fef04b14ea', '1565557623262-b51c2513a641', '1585032226651-759b368d7246'] },
+];
+
+const DEFAULT_FOOD_PHOTOS = ['1541518763669-27fef04b14ea', '1529042410759-befb1204b468', '1565557623262-b51c2513a641'];
+
+const stringHash = (value: string) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  return hash;
+};
+
+const fallbackPhotoUrl = (product: Pick<Product, 'id' | 'name'>, categoryLabel: string, width = 480) => {
+  const candidates = [normalizeText(product.name), normalizeText(categoryLabel)];
+  let pool = DEFAULT_FOOD_PHOTOS;
+  for (const text of candidates) {
+    const rule = FOOD_IMAGE_RULES.find((r) => r.pattern.test(text));
+    if (rule) {
+      pool = rule.photos;
+      break;
+    }
+  }
+  return unsplashUrl(pool[stringHash(`${product.id}${product.name}`) % pool.length], width);
+};
+
 const readStorage = (key: string): string | null => {
   try {
     return window.localStorage.getItem(key);
@@ -348,12 +393,14 @@ function Modal({
   children,
   footer,
   labelledBy,
+  hero,
 }: {
   onClose: () => void;
   title: string;
   children: ReactNode;
   footer?: ReactNode;
   labelledBy: string;
+  hero?: ReactNode;
 }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -374,24 +421,54 @@ function Modal({
         type="button"
         aria-label="Kapat"
         onClick={onClose}
-        className="absolute inset-0 bg-stone-900/50 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-stone-900/50 backdrop-blur-md"
       />
-      <div className="relative flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-md sm:rounded-3xl">
-        <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-5 py-4">
-          <h2 id={labelledBy} className="text-lg font-bold text-stone-900">
-            {title}
-          </h2>
+      <div className="relative flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-[#fffdfa] shadow-2xl shadow-stone-900/30 ring-1 ring-white/60 sm:max-w-md sm:rounded-3xl">
+        {hero ? (
           <button
             type="button"
             onClick={onClose}
             aria-label="Kapat"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100 text-stone-600 transition hover:bg-stone-200"
+            className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white ring-1 ring-white/30 backdrop-blur-md transition hover:bg-black/45"
           >
             <X className="h-5 w-5" />
           </button>
+        ) : (
+          <div className="flex items-center justify-between gap-3 border-b border-stone-100 bg-linear-to-r from-orange-50/80 to-amber-50/40 px-5 py-4">
+            <h2 id={labelledBy} className="text-lg font-bold text-stone-900">
+              {title}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Kapat"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-stone-600 shadow-sm ring-1 ring-stone-200 transition hover:bg-stone-100"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          {hero && (
+            <div className="relative">
+              {hero}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-black/20"
+              />
+              <h2
+                id={labelledBy}
+                className="absolute inset-x-0 bottom-0 px-5 pb-4 text-xl font-extrabold leading-tight text-white drop-shadow-md"
+              >
+                {title}
+              </h2>
+            </div>
+          )}
+          <div className="px-5 py-4">{children}</div>
         </div>
-        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
-        {footer && <div className="border-t border-stone-100 bg-white px-5 py-4">{footer}</div>}
+        {footer && (
+          <div className="border-t border-stone-100 bg-white/90 px-5 py-4 backdrop-blur-md">{footer}</div>
+        )}
       </div>
     </div>
   );
@@ -455,25 +532,46 @@ function DietBadges({ product }: { product: Product }) {
   );
 }
 
-function ProductThumb({ product, className }: { product: Product; className: string }) {
-  const [failed, setFailed] = useState(false);
-  if (product.image_url && !failed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={product.image_url}
-        alt={product.name}
-        loading="lazy"
-        onError={() => setFailed(true)}
-        className={`${className} object-cover`}
-      />
-    );
-  }
+function ProductThumb({
+  product,
+  fallbackSrc,
+  className,
+  width = 480,
+}: {
+  product: Product;
+  fallbackSrc: string;
+  className: string;
+  width?: number;
+}) {
+  const sources = [product.image_url, fallbackSrc].filter((src): src is string => Boolean(src));
+  const [failedCount, setFailedCount] = useState(0);
+  const src = sources[failedCount];
+
   return (
     <div
-      className={`${className} flex items-center justify-center bg-linear-to-br from-orange-100 to-amber-50 text-orange-400`}
+      className={`${className} relative overflow-hidden bg-linear-to-br from-orange-100 via-amber-50 to-orange-50`}
     >
-      <UtensilsCrossed className="h-7 w-7" />
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={src}
+          src={src}
+          alt={product.name}
+          width={width}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailedCount((n) => n + 1)}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-orange-300">
+          <UtensilsCrossed className="h-7 w-7" />
+        </div>
+      )}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-black/10"
+      />
     </div>
   );
 }
@@ -526,6 +624,7 @@ function MenuApp() {
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const searchBoxRef = useRef<HTMLDivElement>(null);
+  const [heroFailed, setHeroFailed] = useState(false);
 
   /* Cart */
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -1038,14 +1137,23 @@ function MenuApp() {
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-2xl pb-32">
+      {/* Ortam arka planı: sıcak ışık huzmeleri ve ince doku */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#faf8f5]">
+        <div className="absolute -left-24 top-[28rem] h-80 w-80 rounded-full bg-orange-300/25 blur-3xl" />
+        <div className="absolute -right-28 top-[48rem] h-96 w-96 rounded-full bg-amber-300/25 blur-3xl" />
+        <div className="absolute -bottom-24 left-1/4 h-80 w-80 rounded-full bg-orange-200/30 blur-3xl" />
+        <div className="ambient-texture absolute inset-0 opacity-60" />
+      </div>
+
       {/* Aktif sipariş takip çubuğu */}
       {activeOrder && (
+        <div className="sticky top-0 z-40 px-3 pb-1 pt-3">
         <button
           type="button"
           onClick={() => setTrackingOpen(true)}
-          className="sticky top-0 z-40 flex w-full items-center gap-3 bg-orange-500 px-4 py-3 text-left text-white shadow-md transition hover:bg-orange-600"
+          className="flex w-full items-center gap-3 rounded-2xl bg-linear-to-r from-orange-500 to-amber-500 px-4 py-3 text-left text-white shadow-xl shadow-orange-600/25 ring-1 ring-white/30 transition hover:brightness-105 active:scale-[0.99]"
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/25 ring-1 ring-white/40 backdrop-blur-md">
             {isCompleted ? (
               <PartyPopper className="h-4 w-4" />
             ) : isPreparing ? (
@@ -1062,28 +1170,49 @@ function MenuApp() {
           </span>
           <ChevronRight className="h-5 w-5 shrink-0" />
         </button>
+        </div>
       )}
 
       {/* Başlık */}
-      <header className="px-4 pb-3 pt-6">
+      <header className="relative isolate flex min-h-[19rem] flex-col justify-between overflow-hidden px-4 pb-4 pt-8 sm:mx-4 sm:mt-4 sm:rounded-3xl">
+        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-br from-stone-900 via-stone-800 to-orange-900">
+          {!heroFailed && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={unsplashUrl(HERO_PHOTO_ID, 1400)}
+              alt=""
+              fetchPriority="high"
+              onError={() => setHeroFailed(true)}
+              className="h-full w-full object-cover"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#faf8f5] via-[#faf8f5]/60 to-black/60" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(251,146,60,0.45),transparent_60%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(251,191,36,0.25),transparent_55%)]" />
+        </div>
+
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-orange-600">Hoş geldiniz</p>
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-stone-900">Dijital Menü</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Hoş geldiniz</p>
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-white drop-shadow-md">Dijital Menü</h1>
+            <p className="mt-1 max-w-[16rem] text-sm text-white/80">
+              Taze, özenle hazırlanan lezzetler masanıza gelsin.
+            </p>
           </div>
-          <span className="rounded-full bg-stone-900 px-3.5 py-1.5 text-sm font-bold text-white">
+          <span className="rounded-full bg-white/20 px-3.5 py-1.5 text-sm font-bold text-white ring-1 ring-white/40 backdrop-blur-md">
             Masa {tableParam}
           </span>
         </div>
 
+        <div className="mt-8">
         {DEMO_MODE && (
-          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+          <p className="mb-3 rounded-xl bg-amber-50/90 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200 backdrop-blur-md">
             Demo modu: Supabase anahtarları tanımlı değil, örnek menü ve simüle edilmiş sipariş akışı gösteriliyor.
           </p>
         )}
 
         {/* Garson / Hesap */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {(
             [
               { type: 'waiter' as const, label: 'Garson Çağır', icon: Bell, remaining: waiterRemaining },
@@ -1098,7 +1227,7 @@ function MenuApp() {
                 type="button"
                 disabled={locked || callPending !== null}
                 onClick={() => handleCall(type)}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-semibold text-stone-800 shadow-sm transition enabled:hover:border-orange-300 enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
+                className="flex items-center justify-center gap-2 rounded-2xl border border-white/70 bg-white/85 px-3 py-3 text-sm font-semibold text-stone-800 shadow-lg shadow-stone-900/10 backdrop-blur-md transition enabled:hover:border-orange-300 enabled:hover:bg-white enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-stone-100/90 disabled:text-stone-400"
               >
                 {pending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1116,6 +1245,7 @@ function MenuApp() {
             );
           })}
         </div>
+        </div>
       </header>
 
       {/* Arama */}
@@ -1132,7 +1262,7 @@ function MenuApp() {
             onFocus={() => setSearchOpen(true)}
             placeholder="Lezzet ara..."
             aria-label="Menüde ara"
-            className="w-full rounded-2xl border border-stone-200 bg-white py-3 pl-10 pr-10 text-[16px] text-stone-900 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-100 sm:text-sm"
+            className="w-full rounded-2xl border border-stone-200 bg-white/90 py-3 pl-10 pr-10 text-[16px] text-stone-900 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-100 sm:text-sm"
           />
           {query && (
             <button
@@ -1149,7 +1279,7 @@ function MenuApp() {
           )}
 
           {searchOpen && trimmedQuery.length >= SEARCH_MIN_CHARS && (
-            <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl">
+            <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-white/60 bg-white/95 p-1.5 shadow-2xl shadow-stone-900/15 backdrop-blur-md">
               {searchSuggestions.length === 0 ? (
                 <p className="px-3 py-4 text-center text-sm text-stone-500">
                   &ldquo;{trimmedQuery}&rdquo; için eşleşen lezzet bulunamadı.
@@ -1160,9 +1290,14 @@ function MenuApp() {
                     key={product.id}
                     type="button"
                     onClick={() => pickSuggestion(product)}
-                    className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition hover:bg-orange-50"
+                    className="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition hover:bg-orange-50"
                   >
-                    <ProductThumb product={product} className="h-10 w-10 shrink-0 rounded-lg" />
+                    <ProductThumb
+                      product={product}
+                      fallbackSrc={fallbackPhotoUrl(product, categoryName(product.category_id), 160)}
+                      width={160}
+                      className="h-11 w-11 shrink-0 rounded-lg"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-stone-900">{product.name}</span>
                       <span className="block truncate text-xs text-stone-500">{categoryName(product.category_id)}</span>
@@ -1211,8 +1346,8 @@ function MenuApp() {
               onClick={() => setActiveCategory(category.id)}
               className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${
                 selected
-                  ? 'bg-orange-500 text-white shadow-md shadow-orange-200'
-                  : 'bg-white text-stone-700 ring-1 ring-stone-200 hover:ring-orange-300'
+                  ? 'bg-linear-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30'
+                  : 'bg-white/90 text-stone-700 ring-1 ring-stone-200 backdrop-blur-sm hover:ring-orange-300'
               }`}
             >
               {category.name}
@@ -1276,7 +1411,7 @@ function MenuApp() {
                     return (
                       <li
                         key={product.id}
-                        className="flex gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-stone-200/70"
+                        className="group flex gap-3 rounded-2xl bg-white/90 p-3 shadow-sm ring-1 ring-stone-200/70 backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-900/10 hover:ring-orange-200"
                       >
                         <button
                           type="button"
@@ -1285,7 +1420,12 @@ function MenuApp() {
                           aria-label={multi ? `${product.name} detayları` : undefined}
                           className="shrink-0 disabled:cursor-default"
                         >
-                          <ProductThumb product={product} className="h-24 w-24 rounded-xl" />
+                          <ProductThumb
+                            product={product}
+                            fallbackSrc={fallbackPhotoUrl(product, categoryName(product.category_id), 360)}
+                            width={360}
+                            className="h-24 w-24 rounded-xl"
+                          />
                         </button>
                         <div className="flex min-w-0 flex-1 flex-col">
                           <div className="flex items-start justify-between gap-2">
@@ -1312,7 +1452,7 @@ function MenuApp() {
                               type="button"
                               onClick={() => handleProductTap(product)}
                               aria-label={multi ? `${product.name} porsiyon seç` : `${product.name} sepete ekle`}
-                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white shadow-md shadow-orange-200 transition hover:bg-orange-600 active:scale-95"
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30 transition hover:brightness-105 active:scale-95"
                             >
                               <Plus className="h-5 w-5" />
                             </button>
@@ -1334,16 +1474,18 @@ function MenuApp() {
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-2xl bg-stone-900 px-4 py-3.5 text-white shadow-2xl transition active:scale-[0.99]"
+            className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-2xl bg-linear-to-r from-orange-500 to-amber-500 px-4 py-3.5 text-white shadow-xl shadow-orange-600/25 ring-1 ring-white/30 transition hover:brightness-105 active:scale-[0.99]"
           >
-            <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
+            <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/25 ring-1 ring-white/40 backdrop-blur-md">
               <ShoppingBag className="h-5 w-5" />
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[11px] font-bold">
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[11px] font-extrabold text-orange-600 shadow">
                 {cartCount}
               </span>
             </span>
             <span className="flex-1 text-left text-sm font-semibold">Sepeti Görüntüle</span>
-            <span className="text-base font-extrabold">{formatPrice(cartTotal)}</span>
+            <span className="rounded-full bg-white/25 px-3 py-1 text-base font-extrabold ring-1 ring-white/40 backdrop-blur-md">
+              {formatPrice(cartTotal)}
+            </span>
           </button>
         </div>
       )}
@@ -1366,6 +1508,15 @@ function MenuApp() {
           onClose={() => setDetailProduct(null)}
           title={detailProduct.name}
           labelledBy="detail-title"
+          hero={
+            <ProductThumb
+              key={detailProduct.id}
+              product={detailProduct}
+              fallbackSrc={fallbackPhotoUrl(detailProduct, categoryName(detailProduct.category_id), 900)}
+              width={900}
+              className="h-52 w-full sm:h-56"
+            />
+          }
           footer={
             <div className="flex items-center gap-3">
               <QuantityStepper
@@ -1376,15 +1527,14 @@ function MenuApp() {
               <button
                 type="button"
                 onClick={confirmDetail}
-                className="flex-1 rounded-2xl bg-orange-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-orange-200 transition hover:bg-orange-600 active:scale-[0.98]"
+                className="flex-1 rounded-2xl bg-linear-to-r from-orange-500 to-amber-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-orange-500/30 transition hover:brightness-105 active:scale-[0.98]"
               >
                 Sepete Ekle · {formatPrice(detailUnitPrice * detailQty)}
               </button>
             </div>
           }
         >
-          <ProductThumb product={detailProduct} className="h-40 w-full rounded-2xl" />
-          <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2">
             <DietBadges product={detailProduct} />
           </div>
           {detailProduct.description && (
@@ -1460,7 +1610,7 @@ function MenuApp() {
                   type="button"
                   onClick={handleSubmitOrder}
                   disabled={submitting}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 py-3.5 text-sm font-bold text-white shadow-md shadow-orange-200 transition enabled:hover:bg-orange-600 enabled:active:scale-[0.98] disabled:opacity-70"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-linear-to-r from-orange-500 to-amber-500 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-orange-500/30 transition enabled:hover:brightness-105 enabled:active:scale-[0.98] disabled:opacity-70"
                 >
                   {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {submitting ? 'Gönderiliyor...' : 'Siparişi Onayla'}

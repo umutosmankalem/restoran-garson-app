@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafaf9;
+  --background: #faf8f5;
   --foreground: #1c1917;
 }
 
@@ -25,4 +25,11 @@ body {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+.ambient-texture {
+  background-image:
+    radial-gradient(rgba(180, 120, 60, 0.07) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 0%, rgba(255, 237, 213, 0.6), transparent 60%);
+  background-size: 22px 22px, 100% 100%;
 }
